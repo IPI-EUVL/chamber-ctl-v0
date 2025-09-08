@@ -13,7 +13,8 @@ import tkinter.messagebox as messagebox
 import sys
 import subprocess
 
-import Data_Collection_V5
+from . import Data_Collection_V5
+#import Data_Collection_V5
 #/////////////////////////////////////IMPORTS/////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -23,7 +24,7 @@ if getattr(sys, 'frozen', False):
 else:
     base_path = os.path.dirname(os.path.abspath(__file__))
 
-log_path = os.path.join(base_path, "..\\..\\Log.txt")
+log_path = os.path.join(os.getcwd(), "data\\Log.txt")
 
 print(f"Writing to log file: {log_path}")
 
@@ -869,9 +870,12 @@ class TargetMotionControlGUI:
 
 import tkinter as tk
 
-if __name__ == "__main__":
+def main():
     root = tk.Tk()
     app = TargetMotionControlGUI(root)
     root.mainloop()
+
+if __name__ == "__main__":
+    main()
 
 #/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////   
