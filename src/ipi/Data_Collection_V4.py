@@ -19,14 +19,11 @@ import plotly.io as pio
 from datetime import date
 import re
 import pyvisa
-from Target_Motion_Control_V3 import TargetMotionControlGUI
 
 location = os.path.dirname(os.path.abspath(__name__))
 
 running = False
 file_path = None 
-
-motion = TargetMotionControlGUI()
 
 rm = pyvisa.ResourceManager()
 scope = rm.open_resource("USB0::0xF4EC::0x100C::SDS2HBAX900425::INSTR")

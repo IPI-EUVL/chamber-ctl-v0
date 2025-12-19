@@ -36,7 +36,9 @@ signal.signal(signal.SIGTERM, handle_exit)  # External kill
 
 location = os.path.dirname(os.path.abspath(__name__))
 rm = pyvisa.ResourceManager()
-scope = rm.open_resource("USB0::0xF4EC::0x100C::SDS2HBAX900425::INSTR")
+scope_ip = "TCPIP0::10.11.13.220::5025::SOCKET"
+
+scope = rm.open_resource(scope_ip)
 
     #-----------------------------------
     # Data Collection
@@ -53,9 +55,9 @@ def configure_oscilloscope(channel):
 
         # Real-time continuous data acquisition
         scope.write(":ACQ:MODE RT")  # Real-time acquisition
-        scope.write(":ACQ:SRAT 2E9")  # 2 GSa/s Sampling Rate
-        scope.write(":ACQ:MDEP 10M")  # Match screen memory depth (10Mpts)  
-        scope.write(":TIM:SCAL 5e-6")  # Match display (5us per division)
+        scope.write(":ACQ:SRAT 1E9")  # 2 GSa/s Sampling Rate
+        scope.write(":ACQ:MDEP 200M")  # Match screen memory depth (10Mpts)  
+        scope.write(":TIM:SCAL 2e-3")  # Match display (5us per division)
 
         # Trigger settings
         scope.write(":TRIG:MODE EDGE")  
@@ -116,7 +118,7 @@ def load_and_plot_threshold_label_multi(file_paths,
             exposure_time_s_per_file (float): Exposure time per file in seconds
         """
         try:
-            fs = 2e9  # Sampling rate: 2 GSa/s
+            fs = 1e9  # Sampling rate: 2 GSa/s
             area_cm2 = area_mm2 / 100.0
             total_pulses_per_file = rep_rate_hz * exposure_time_s_per_file  # e.g., 9000
 
@@ -214,7 +216,7 @@ def load_and_plot_threshold_label_multi(file_paths,
             # Create filename
             filename = f"{today}_S{next_seq}_{int(exposure_time_s_per_file)}s.txt" 
 ##########################################################################################
-            with open (f"{folder_path2}\{filename}", "w") as output:
+            with open (f"{folder_path2}\\{filename}", "w") as output:
                 output.write(f"Total number of pulses: {num_pulses}\n"
                                     f"Collection Rate: {collection_rate:.1f}%\n"
                                     f"Average Single-Shot Dose: {avg_single_shot_dose:.3e} mJ/cm²\n"
@@ -261,4 +263,6 @@ def main():
                 rep_rate_hz=100,
                 exposure_time_s_per_file= total_t
             )
+
+collect_raw_data()
 #REMEMBER TO CHANGE THE FILEPATHS

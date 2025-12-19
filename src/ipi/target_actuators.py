@@ -12,8 +12,6 @@ import numpy as np
 import tkinter.messagebox as messagebox
 import sys
 import subprocess
-import signal
-
 
 #import Data_Collection_V5
 #/////////////////////////////////////IMPORTS/////////////////////////////////////////////////////////////////////////////////////
@@ -52,6 +50,158 @@ data_collection_path = os.path.join(base_path, "Data_Collection_V5.py")
 # Direction set by writing HIGH/LOW to DIR+ and DIR− respectively
 # Verified with StepperOnline 23HS45-4204S (4.2A, 3N·m) and DM556T driver
 # =======================================
+
+class TargetMotionControl:
+    def __init__(self):
+        self.__handle = None
+        self.PUL_PLUS = "FIO4"
+        self.PUL_MIN = "FIO5"
+        self.DIR_PLUS = "FIO6"
+        self.DIR_MIN = "FIO7"
+
+        self.PORT_NUM = 3
+
+        self.__steps_per_rev = 200
+        self.__microsteps = 16 #If the number of microsteps is changed, the DIP switches on the drivers must be set according to datasheet
+        self.__sec_revs_per_step = 1/(self.__steps_per_rev*self.__microsteps)
+        self.th_v = 0
+
+        self.__shutdown = False
+
+        self.__lin_queue = []
+        self.__lin_command_block = False
+
+        self.__z_home_pending = False
+        self.z_target = float('nan')
+        self.z_v = 0
+
+        self.__rot_setup_labjack()
+        self.__lin_open_port()
+
+        self.__rot_daemon_start()
+        self.__lin_daemon_start()
+
+    def rot_set_velocity(self, vel):
+        self.th_v = vel
+
+    def lin_set_velocity(self, vel):
+        self.z_v = vel
+
+    def lin_home(self):
+        self.__z_home_pending = True
+
+    def lin_goto(self, z):
+        self.z_target = z
+
+    def stop(self):
+        self.__rot_stop()
+        self.__lin_stop()
+        
+    def __rot_setup_labjack(self):
+        self.__handle = ljm.openS("ANY", "ANY", "ANY")
+
+        ljm.eWriteName(self.__handle, "DIO_INHIBIT", 0)  #All outputs enabled
+        ljm.eWriteName(self.__handle, "DIO_ANALOG_ENABLE", 0)  #Set to digital not analog
+        ljm.eWriteName(self.__handle, self.PUL_PLUS, 0)
+        ljm.eWriteName(self.__handle, self.PUL_MIN, 0)  #Inverse of PUL+
+        ljm.eWriteName(self.__handle, self.DIR_PLUS, 0)
+        ljm.eWriteName(self.__handle, self.DIR_MIN, 0)  #Inverse of DIR+
+
+#//////////////////////////////////////////////////////////Linear motion////////////////////////////////////////////////////////////////////////////////////////
+#//////////////////////////////////////////////////////////Linear motion////////////////////////////////////////////////////////////////////////////////////////
+#//////////////////////////////////////////////////////////Linear motion////////////////////////////////////////////////////////////////////////////////////////
+#hel
+    def __lin_open_port(self):
+        self.__lin_port = serial.Serial(port=f'COM{self.PORT_NUM}', baudrate=9600, bytesize=7, parity='E', stopbits=1, timeout=0.5)
+            
+    def __lin_daemon_start(self): 
+        threading.Thread(target=self.__lin_daemon, daemon=True).start()
+            
+    def __lin_daemon(self):
+        self.__lin_command("DM00000000")
+        self.__lin_command("AM10000000")
+
+        self.ser_in.write("SV30000\r")
+        self.ser_in.write("SF30000\r")
+        self.ser_in.write("SJ10000\r")
+        self.ser_in.write("SA50000\r")
+        self.ser_in.write("LD500000\r")
+        self.ser_in.write("SD50000\r")
+        
+        while True:
+            time.sleep(0.1)
+
+            status = self.__lin_command(b"CO", None)
+            print (status)
+
+            if self.__z_home_pending:
+                self.__lin_command(b"HD")
+
+
+    def __lin_write_command(self, command):
+        to_write = f"1{command}\r"
+        self.__lin_port.write(to_write.encode('utf-8'))
+            
+    def __lin_read(self):
+        ret = self.__lin_port.read_until()
+        return ret
+            
+    def __lin_command(self, command, expected_reply = b"OK"):
+        self.__lin_write_command(command)
+        ret = self.__lin_read()
+
+        print(ret)
+
+        if ret is None:
+            raise Exception("Did not get reply from linear actuator")
+        
+        if expected_reply is not None and ret != expected_reply:
+            raise Exception(f"Unexpected reply from linear actuator: {ret}")
+        
+        return ret
+                
+    
+    def __lin_stop(self):
+        self.moving = False
+        self.__lin_enqueue('1AB')
+        time.sleep(2)
+        self.__lin_enqueue('1RS')
+        time.sleep(0.5)
+
+    def __rot_daemon_start(self): 
+        threading.Thread(target=self.__rot_daemon, daemon=True).start()
+    
+    def __rot_daemon(self):
+        while not self.__shutdown:
+            cw = self.th_v > 0
+
+            ljm.eWriteName(self.__handle, self.DIR_PLUS, 1 if cw else 0)
+            ljm.eWriteName(self.__handle, self.DIR_MIN, 0)
+            
+            step_delay = self.__sec_revs_per_step / abs(self.th_v)
+
+            if step_delay > 0.1:
+                time.sleep(0.1)
+                continue
+
+            if cw and self.th_v < 0:
+                ljm.eWriteName(self.__handle, self.DIR_PLUS, 0)
+                ljm.eWriteName(self.__handle, self.DIR_MIN, 0)
+            elif not cw and self.th_v > 0:
+                ljm.eWriteName(self.__handle, self.DIR_PLUS, 1)
+                ljm.eWriteName(self.__handle, self.DIR_MIN, 0)
+
+            cw = self.th_v > 0
+
+            ljm.eWriteName(self.__handle, self.PUL_PLUS, 1)
+            time.sleep(step_delay / 2)
+            ljm.eWriteName(self.__handle, self.PUL_PLUS, 0)
+            time.sleep(step_delay / 2)
+
+    def __rot_stop(self):
+        self.th_v = 0
+
+
 
 #//////////////////////////////////////////////////////////GUI////////////////////////////////////////////////////////////////////////////////////////
 class TargetMotionControlGUI:
@@ -93,14 +243,14 @@ class TargetMotionControlGUI:
         #Ports
         self.ports = serial.tools.list_ports.comports()
         self.available_ports = []
-        self.highest_number = 3
-        """
+        self.highest_number = 0
         for port in self.ports:
             self.available_ports.append(port.device)
         for port in self.ports:
             number = int(port.device.replace("COM",""))
             if number > self.highest_number:
-                self.highest_number = number"""
+                self.highest_number = number
+
 
         #GUI setup
         self.lin_widgets()
@@ -138,16 +288,34 @@ class TargetMotionControlGUI:
         self.status_lbl2 = ttk.Label(Status, text="Ready" if self.handle else "Disconnected", font=("Helvetica", 9, "bold", "italic"))
         self.status_lbl2.pack()
 
-        #Data Collection?
-        
-        #data collection 
-        self.data = tk.StringVar(value="Enabled")
+        #tin target length
+        self.length = tk.IntVar()
+        self.targetl = ttk.Label(framing, text = "Please enter target length", font=("Helvetica", 9, "bold"))
+        self.targetl2 = ttk.Label(framing, text = "mm", font=("Helvetica", 9, "bold"))
+        self.targetentry = tk.Entry(framing, textvariable=self.length)
+        self.targetl.grid(row=3, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+        self.targetentry.grid(row=4, column=0, columnspan=1, padx=10, pady=10, sticky="ew")
+        self.targetl2.grid(row=4, column=1, columnspan=1, padx=10, pady=10, sticky="w")
 
-        self.status_lbl3 = ttk.Label(Status, text="Data Collection Enabled", font=("Helvetica", 9, "bold", "italic"))
-        self.status_lbl3.pack()
 
-        tot_exp = f"Total Exposure Time Remaining = --:--"
-        sec_exp = f"Current Exposure Time = --:--"
+
+        with open (log_path, "r") as readlog:
+            times = readlog.readlines()
+        total_minutes1 = float(times[1].strip()) / 60
+        total_minutes2 = float(times[2].strip()) / 60
+        minutes1 = int(total_minutes1)
+        minutes2 = int(total_minutes2)
+        seconds1 = (total_minutes1 - minutes1)/60 
+        seconds2 = (total_minutes2 - minutes2)/60 
+        dt = total_minutes1*60
+        t = total_minutes2*60
+        tot_min = (12.83333333333*60 - dt)/60
+        cur_time = (t/60)
+        sec1 = f"{int(float(tot_min-int(tot_min)-seconds1)*60):02}"
+        sec2 = f"{int(float(cur_time-int(cur_time)+seconds2)*60):02}"
+        tot_exp = f"Total Exposure Time Remaining = {(int(tot_min))}:{sec1}"
+        sec_exp = f"Current Exposure Time = {(int(cur_time))}:{sec2}"
+
 
         #Exposure label    
         self.exposure_lbl = ttk.Label(Status, text=f"{tot_exp}", font=("Helvetica", 9, "bold", "italic"))
@@ -157,34 +325,9 @@ class TargetMotionControlGUI:
         self.currentexposure_lbl = ttk.Label(Status, text=f"{sec_exp}", font=("Helvetica", 9, "bold", "italic"))
         self.currentexposure_lbl.pack()
 
-        #tin target length
-        self.length = tk.IntVar(value=63.5)
-        self.targetl = ttk.Label(framing, text = "Please enter target length", font=("Helvetica", 9, "bold"))
-        self.targetl2 = ttk.Label(framing, text = "mm", font=("Helvetica", 9, "bold"))
-        self.targetentry = tk.Entry(framing, textvariable=self.length)
-        self.targetl.grid(row=3, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
-        self.targetentry.grid(row=4, column=0, columnspan=1, padx=10, pady=10, sticky="ew")
-        self.targetl2.grid(row=4, column=1, columnspan=1, padx=10, pady=10, sticky="w")
-
-
-        #Sample exposure time
-        self.timer1 = tk.IntVar(value=30)
-        self.timer1l = ttk.Label(framing,text = "Please enter exposure time in seconds", font=("Helvetica", 9, "bold"))
-        self.timer1l2 = ttk.Label(framing, text = "s", font=("Helvetica", 9, "bold"))
-        self.timer1entry = tk.Entry(framing, textvariable=self.timer1)
-        self.timer1l.grid(row=5, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
-        self.timer1entry.grid(row=6, column=0, columnspan=1, padx=10, pady=10, sticky="ew")
-        self.timer1l2.grid(row=6, column=1, columnspan=1, padx=10, pady=10, sticky="w")
-
-        tk.Radiobutton(framing, text="Data Collection Enabled", variable=self.data, value="Enabled").grid(row=7, column=0, columnspan=1, padx=10, pady=10, sticky="w")
-        tk.Radiobutton(framing, text="Data Collection Disabled", variable=self.data, value="Disabled").grid(row=8, column=0, columnspan=1, padx=10, pady=10, sticky="w")
-
-        #tk.Button(framing, text = "Select Save File").grid(row = 9, column = 0 , columnspan = 1, padx = 10, pady = 10, stick = "ew")
-
         #GUI responsivity
         self.root.columnconfigure(0, weight=1)
         framing.columnconfigure(1, weight=1)
-
 
     def animation_widgets(self):
         # Window
@@ -194,13 +337,13 @@ class TargetMotionControlGUI:
         self.canvas = tk.Canvas(framing, width=1300, height=500, bg="black")
         self.canvas.grid(row=2, column=0, columnspan=2, padx=10, pady=10)  
 
-        self.canvas_width = int(self.canvas['width'])
-        self.canvas_height = int(self.canvas['height'])
+        canvas_width = int(self.canvas['width'])
+        canvas_height = int(self.canvas['height'])
 
         #general parameters
         self.animated = False
         self.last_time = time.time()
-        self.speed_conversion = (30*7836.745406824146968503937007874)/(self.canvas_width*0.15)
+        self.speed_conversion = (self.targetentry.get()*7836.745406824146968503937007874)/(canvas_width*0.15)
         self.phase_shift =  np.pi * 9/8
         self.clockw = True
 
@@ -209,38 +352,38 @@ class TargetMotionControlGUI:
             self.offset = abs(float(pos[0].strip()))/self.speed_conversion
 
         #buttons
-        self.toggle_button1 = tk.Button(framing, text="Start Movement", bg="blue", fg="white", font=("Segoe UI", 12, "bold"), width=12, command=self.go_in)
+        self.toggle_button1 = tk.Button(framing, text="Start Movement", bg="green", fg="white", font=("Segoe UI", 12, "bold"), width=12, command=self.go_in)
         self.toggle_button1.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="ew")    
 
-        #self.toggle_button2 = tk.Button(framing, text="New Sample (Reset Exposure Time)", bg = "blue", fg="white", font=("Segoe UI", 12, "bold"), width=12, command=self.new_exposure)
-        #self.toggle_button2.grid(row=5, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+        self.toggle_button2 = tk.Button(framing, text="New Sample (Reset Exposure Time)", bg = "blue", fg="white", font=("Segoe UI", 12, "bold"), width=12, command=self.new_exposure)
+        self.toggle_button2.grid(row=5, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
 
         self.toggle_button3 = tk.Button(framing, text="Return to Home Position & Reset Timer", bg= "red", fg="white", font=("Segoe UI", 12, "bold"), width=12, command=self.reset_all)
         self.toggle_button3.grid(row=6, column=0, columnspan=2, padx=10, pady=(10,0), sticky="ew")
 
-        separator = tk.Label(framing, text="------------------------------------------------", font=("Segoe UI", 20, "bold"))
+        separator = tk.Label(framing, text=". . . . .", font=("Segoe UI", 20, "bold"))
         separator.grid(row=7, column=0, columnspan=2, pady=(0, 13))
 
         self.toggle_button4 = tk.Button(framing, text="Set New Home Position", bg="red", fg="white", font=("Segoe UI", 12, "bold"), width=12, command=self.rezero_pos)
         self.toggle_button4.grid(row=8, column=0, columnspan=2, padx=10, pady=(0,15), sticky="ew")
 
         # Parameters for target
-        self.target_lenght = self.canvas_width * 0.17
-        self.target_width = self.canvas_height * 0.1
-        self.target_ycenter = self.canvas_height/2
-        self.target_xcenter = self.canvas_width * 0.5 - self.offset 
+        self.target_lenght = canvas_width * 0.17
+        self.target_width = canvas_height * 0.1
+        self.target_ycenter = canvas_height/2
+        self.target_xcenter = canvas_width * 0.5 - self.offset 
 
         #parameters for holder
-        self.holder_lenght = self.canvas_width - (self.target_xcenter + self.target_lenght/2)
+        self.holder_lenght = canvas_width - (self.target_xcenter + self.target_lenght/2)
         self.holder_width = self.target_width * 2
-        self.holder_ycenter = self.canvas_height/2
+        self.holder_ycenter = canvas_height/2
         self.holder_xcenter = self.target_xcenter + self.target_lenght/2 + self.holder_lenght/2
 
         #parameters for laser
-        self.laser_lenght = self.canvas_height/2
+        self.laser_lenght = canvas_height/2
         self.laser_width = 5
-        self.laser_ycenter = self.canvas_height * 3/4 + self.target_width/2
-        self.laser_xcenter = self.canvas_width/2 - self.target_lenght/2 -5
+        self.laser_ycenter = canvas_height * 3/4 + self.target_width/2
+        self.laser_xcenter = canvas_width/2 - self.target_lenght/2 -5
 
         # Drawing coordinates for target
         self.x1 = self.target_xcenter - self.target_lenght / 2
@@ -322,10 +465,6 @@ class TargetMotionControlGUI:
     def serial_port_setup(self):
         try:
             self.ser_in = serial.Serial(port=f'COM{self.highest_number}', baudrate=9600, bytesize=7, parity='E', stopbits=1, timeout=1)
-            self.ser_in.write(b"SV30000\r")
-            self.ser_in.write(b"SF30000\r")
-            self.ser_in.write(b"SJ10000\r")
-            self.ser_in.write(b"SA50000\r")
             self.ser_connected = True
             self.status_updater(f"Successfully connected to {self.ser_in.portstr}")
             time.sleep(3)
@@ -376,17 +515,17 @@ class TargetMotionControlGUI:
 #####
     def Button_changer(self):
         if self.button == "Start":
-            self.Buttoner("Start", "blue", "white")
+            self.Buttoner("Start", "#43a047", "white")
         elif self.button == "going":
             self.Buttoner("Stop", "red", "white")
             #self.data_collec = subprocess.Popen(["C:\\Program Files\\Python313\\python.exe C:\\Apps\\Testing\\Data_Collection_V5.py"])
-            #Data_Collection_V5.configure_oscilloscope("1")
-           # Data_Collection_V5.running = True
-            #Data_Collection_V5.collect_raw_data()
+            Data_Collection_V5.configure_oscilloscope("1")
+            Data_Collection_V5.running = True
+            Data_Collection_V5.collect_raw_data()
             print("yay")
         elif self.button == "stopped":
             #subprocess.run(["taskkill", "/IM", "Data_Collection_V5.exe", "/F"], shell=True)
-            #Data_Collection_V5.running = False
+            Data_Collection_V5.running = False
             self.Buttoner("Continue", "darkgrey", "white")
             print("killed")
 
@@ -399,7 +538,6 @@ class TargetMotionControlGUI:
                 cmd = command + '\r'
                 cd = cmd.encode()
                 self.ser_in.write(cd)
-                print(cd)
             except AttributeError:
                 messagebox.showerror("Connection Error", "Linear actuator is not connected.")
                 return False
@@ -545,13 +683,11 @@ class TargetMotionControlGUI:
     def go_in(self):
         self.is_in_or_out = "in"
         if self.button == "Start":
-            self.choppersync = subprocess.Popen(["python", "C:\\Apps\\chamber-ctl\\src\\ipi\\collect_data_bulk.py"], stdin=subprocess.PIPE, text=True)
             self.button = "going"
             self.friendly_button()
             self.dt = 0
             self.t = 0
             self.last_time = time.time()  # Reset time before animation
-            time.sleep(1)
             threading.Thread(target=self.MOVE, daemon=True).start()
             self.rotate_cw()
 
@@ -561,7 +697,6 @@ class TargetMotionControlGUI:
             self.stop()
 
         elif self.button == "stopped":
-            self.choppersync = subprocess.Popen(["python", "C:\\Apps\\chamber-ctl\\src\\ipi\\collect_data_bulk.py"], stdin=subprocess.PIPE, text=True)
             self.button = "going"
             self.friendly_button()
             self.last_time = time.time()  # Reset time here to avoid jump
@@ -570,21 +705,12 @@ class TargetMotionControlGUI:
 
 
         
-    def MOVE(self, speed_str = 300):
-        if self.data.get() == "Enabled":
-            self.status_lbl3.config(text="Data Collection Enabled")
-            self.root.update()
-
-
-        elif self.data.get() == "Disabled":
-            self.status_lbl3.config(text="Data Collection Disabled")
-            self.root.update()
-
+    def MOVE(self, speed_str = 2000):
         if self.is_in_or_out == "in":
             self.move = True
             self.recording()
             try:
-                self.speed_conversion = (float(self.targetentry.get())*7836.745406824146968503937007874)/(self.canvas_width*0.15)
+                speed_str = self.selected_speed
                 self.rate = int(speed_str) / self.speed_conversion
                 self.newrate = -self.rate
                 self.animated = True
@@ -597,11 +723,6 @@ class TargetMotionControlGUI:
             except ValueError:
                 messagebox.showerror("Input Error", "Please select a valid speed.")
                 return False
-            
-            except ZeroDivisionError:
-                messagebox.showerror("Input Error", "Please enter a valid target length")
-
-
         else:
             try:
                 self.rate = int(speed_str) / self.speed_conversion
@@ -624,19 +745,6 @@ class TargetMotionControlGUI:
 
 
     def stop(self):
-        try:
-            #self.choppersync.send_signal(signal.SIGBREAK)
-            #os.kill(self.choppersync.ch, signal.CTRL_C_EVENT)
-            self.choppersync.stdin.write("q\r\n\n")
-            time.sleep(0.1)
-            self.choppersync.communicate('q\r\n', timeout=10)
-            print("Child has exited gracefully.")
-            time.sleep(0.1)
-            os.kill(self.choppersync.pid, signal.SIGINT)
-        except Exception as e:
-            print(e)
-            pass
-        
         self.status_updater(f"Stopping...")
         self.move = False
         self.moving = False
@@ -689,24 +797,24 @@ class TargetMotionControlGUI:
 
     def update_coords(self):
         self.canvas.delete("all")
-        self.canvas_width = 1300
-        self.canvas_height = 500
+        canvas_width = 1300
+        canvas_height = 500
         # Parameters for target
-        self.target_lenght = self.canvas_width * 0.17
-        self.target_width = self.canvas_height * 0.1
-        self.target_ycenter = self.canvas_height/2
+        self.target_lenght = canvas_width * 0.17
+        self.target_width = canvas_height * 0.1
+        self.target_ycenter = canvas_height/2
 
         #parameters for holder
-        self.holder_lenght = self.canvas_width - (self.target_xcenter + self.target_lenght/2)
+        self.holder_lenght = canvas_width - (self.target_xcenter + self.target_lenght/2)
         self.holder_width = self.target_width * 2
-        self.holder_ycenter = self.canvas_height/2
+        self.holder_ycenter = canvas_height/2
         self.holder_xcenter = self.target_xcenter + self.target_lenght/2 + self.holder_lenght/2
 
         #parameters for laser
-        self.laser_lenght = self.canvas_height/2
+        self.laser_lenght = canvas_height/2
         self.laser_width = 5
-        self.laser_ycenter = self.canvas_height * 3/4 + self.target_width/2
-        self.laser_xcenter = self.canvas_width/2 - self.target_lenght/2 - 5
+        self.laser_ycenter = canvas_height * 3/4 + self.target_width/2
+        self.laser_xcenter = canvas_width/2 - self.target_lenght/2 - 5
 
         # Drawing coordinates for targetu
         self.x1 = self.target_xcenter - self.target_lenght / 2
@@ -831,8 +939,8 @@ class TargetMotionControlGUI:
             pass
         self.button = "Start"
         self.friendly_button()
-        self.Exposure_timer(f"Total Exposure Time Remaining = --:--")
-        self.Exposure_timer_the_second(f"Current Exposure Time = --:--")
+        self.Exposure_timer(f"Total Exposure Time Remaining = 12:50")
+        self.Exposure_timer_the_second(f"Current Exposure Time = 0:00")
         with open (log_path, "r") as readlog:
             este = readlog.readlines()
         with open (log_path, "w") as log:
@@ -854,31 +962,27 @@ class TargetMotionControlGUI:
             self.Exposure_timer_the_second(f"Current Exposure Time = 0:00")
         if moved > 0:
             self.is_in_or_out = "in"
-            self.MOVE(-4000)
-            time.sleep(abs(moved)/4000)
+            self.MOVE(-2000)
+            time.sleep(abs(moved)/2000)
             self.stop()
         else:
             self.is_in_or_out = "GET OUT"
-            self.MOVE(4000)
-            time.sleep(abs(moved)/4000)
+            self.MOVE(2000)
+            time.sleep(abs(moved)/2000)
             self.stop()
         self.rezero_pos()
           
     def new_exposure(self):
         self.stop()
-
-        log = open (log_path, "r")
-        lines = log.readlines()
-        time_t = float(lines[1].strip())
-        log.close()
-
-        log = open (log_path, "w")
-        log.write(f"{lines[0].strip()}\n{time_t}\n0")
-        log.close()
-
+        with open (log_path, "r") as log:
+            lines = log.readlines()
+            time_t = float(lines[1].strip())
+        with open (log_path, "w") as log:
+            log.write(f"{lines[0].strip()}\n{time_t}\n0")
         self.Exposure_timer_the_second(f"Current Exposure Time = 0:00")
         self.button = "Start"
         self.friendly_button()
+        self.dt = 0
         self.t = 0
 
     def recording(self):
@@ -902,18 +1006,12 @@ class TargetMotionControlGUI:
             last_time = now
             self.dt += elapsed
             self.t += elapsed
-            if self.dt >= float(7836.745406824146968503937007874/300 * float(self.targetentry.get()) ):
+            if self.dt >= float(12.8 * 60):
                 self.button = "going"
                 self.friendly_button()
                 self.stop()
                 messagebox.showerror("Tin Target Spent", "Please replace the tin target")
-            if self.t >= float(self.timer1.get()):
-                self.button = "going"
-                self.friendly_button()
-                self.new_exposure()
-                messagebox.showinfo("Exposure Completed", "Exposure completed")
-
-            tot_min = (7836.745406824146968503937007874/300 * float(self.targetentry.get()) - self.dt)/60
+            tot_min = (12.833333333333333*60 - self.dt)/60
             cur_time = (self.t/60)
             sec1 = f"{int(float(tot_min-int(tot_min)-seconds1)*60):02}"
             sec2 = f"{int(float(cur_time-int(cur_time)+seconds2)*60):02}"
@@ -935,8 +1033,9 @@ import tkinter as tk
 
 def main():
     root = tk.Tk()
-    app = TargetMotionControlGUI(root)
-    root.mainloop()
+    app = TargetMotionControl()
+
+    time.sleep(10)
 
 if __name__ == "__main__":
     main()
