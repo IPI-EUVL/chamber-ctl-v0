@@ -108,8 +108,6 @@ def main():
             exposures.append(arg)
     else:
         exposures.append(sorted(os.listdir(SAVE_PATH), key=lambda x: os.path.getctime(os.path.join(SAVE_PATH, x)))[-1])
-
-
     
     pulses = []
     chopper = []

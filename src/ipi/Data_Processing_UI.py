@@ -1,9 +1,9 @@
 import tkinter as tk 
 from tkinter import filedialog
 from tkinter import messagebox
-#from ipi import process_snapshot
-#from ipi import process_snapshots
-#from ipi import process_snapshots_no_chopper
+from ipi import process_snapshot
+from ipi import process_snapshots
+from ipi import process_snapshots_no_chopper
 import os
 import sys
 import runpy
@@ -17,7 +17,7 @@ class Data_Processing_UI(tk.Frame):
         super().__init__(master)
         self.widgetsnbuttons()
         master.bind("<Return>", self.trigger_processing_scripts)
-        self.SCRIPT_PATH = "C:\\Users\\srroj\\OneDrive - University of Illinois - Urbana\\IPI work\\Target Motion Control\\chamber-ctl\\src\\ipi"
+        self.SCRIPT_PATH = "./"
         self.grid()
 
     def widgetsnbuttons(self):
@@ -62,8 +62,8 @@ class Data_Processing_UI(tk.Frame):
                 script_path = os.path.join(self.SCRIPT_PATH, "process_snapshot")
                 sys.argv = [script_path, data]
                 #modify the environment variable to point to the correct directory
-                os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
-                runpy.run_module("ipi.process_snapshot", run_name="__main__")
+                #os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
+                process_snapshot.main()
                 #Process single snapshot
             elif script == "piss":
                 self.status.config(text="Processing multiple snapshots with chopper...")
@@ -71,8 +71,8 @@ class Data_Processing_UI(tk.Frame):
                 script_path = os.path.join(self.SCRIPT_PATH, "process_snapshots")
                 sys.argv = [script_path, data]
                 #modify the environment variable to point to the correct directory
-                os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
-                runpy.run_module("ipi.process_snapshots", run_name="__main__")
+                #os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
+                process_snapshots.main()
                 #Process multiple snapshots without chopper
             elif script == "psnc":
                 self.status.config(text="Processing multiple snapshots without chopper...")
@@ -80,8 +80,8 @@ class Data_Processing_UI(tk.Frame):
                 script_path = os.path.join(self.SCRIPT_PATH, "process_snapshots_no_chopper")
                 sys.argv = [script_path, data]
                 #modify the environment variable to point to the correct directory
-                os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
-                runpy.run_module("ipi.process_snapshots_no_chopper", run_name="__main__")
+                #os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
+                process_snapshots_no_chopper.main()
                 #Process multiple snapshots with chopper
             
             self.status.after(0, self.status.config(text = "Processing completed"))
