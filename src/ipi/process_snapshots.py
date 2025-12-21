@@ -442,6 +442,7 @@ def main():
     fig2.add_trace(go.Scatter(yaxis='y', x=tattenuation_graph[:, 0], y=tattenuation_graph[:, 1], mode='lines', name='Target Attenuation', line=dict(color='red'))) 
     fig2.update_layout( title=f"", xaxis_title="Degrees", template="plotly_white", legend_title_text="Waveform Type" ) 
     fig2.show()
+
     
 
 
