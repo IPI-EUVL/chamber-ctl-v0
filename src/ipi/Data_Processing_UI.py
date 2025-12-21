@@ -61,8 +61,7 @@ class Data_Processing_UI(tk.Frame):
                 self.status.update_idletasks()
                 script_path = os.path.join(self.SCRIPT_PATH, "process_snapshot")
                 sys.argv = [script_path, data]
-                #modify the environment variable to point to the correct directory
-                #os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
+
                 process_snapshot.main()
                 #Process single snapshot
             elif script == "piss":
@@ -70,8 +69,7 @@ class Data_Processing_UI(tk.Frame):
                 self.status.update_idletasks()
                 script_path = os.path.join(self.SCRIPT_PATH, "process_snapshots")
                 sys.argv = [script_path, data]
-                #modify the environment variable to point to the correct directory
-                #os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
+
                 process_snapshots.main()
                 #Process multiple snapshots without chopper
             elif script == "psnc":
@@ -79,8 +77,7 @@ class Data_Processing_UI(tk.Frame):
                 self.status.update_idletasks()
                 script_path = os.path.join(self.SCRIPT_PATH, "process_snapshots_no_chopper")
                 sys.argv = [script_path, data]
-                #modify the environment variable to point to the correct directory
-                #os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
+
                 process_snapshots_no_chopper.main()
                 #Process multiple snapshots with chopper
             
