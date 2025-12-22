@@ -1,16 +1,15 @@
 import tkinter as tk 
 from tkinter import filedialog
 from tkinter import messagebox
-from ipi import process_snapshot
-from ipi import process_snapshots
-from ipi import process_snapshots_no_chopper
+import process_snapshot
+import process_snapshots
+import process_snapshots_no_chopper
 import os
 import sys
 import runpy
 import threading
-from tkinterweb import HtmlFrame
-
-sys.path.append("C:\\Users\\srroj\\OneDrive - University of Illinois - Urbana\\IPI work\\Target Motion Control\\chamber-ctl\\src")
+import process_snapshots
+#from tkinterweb import HtmlFrame
 
 class Data_Processing_UI(tk.Frame):
     def __init__(self, master):
@@ -60,7 +59,7 @@ class Data_Processing_UI(tk.Frame):
                 self.status.config(text="Processing individual snapshot...")
                 self.status.update_idletasks()
                 script_path = os.path.join(self.SCRIPT_PATH, "process_snapshot")
-                sys.argv = [script_path, data]
+                sys.argv = [script_path, data, 1]
                 #modify the environment variable to point to the correct directory
                 #os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
                 process_snapshot.main()
@@ -69,7 +68,7 @@ class Data_Processing_UI(tk.Frame):
                 self.status.config(text="Processing multiple snapshots with chopper...")
                 self.status.update_idletasks()
                 script_path = os.path.join(self.SCRIPT_PATH, "process_snapshots")
-                sys.argv = [script_path, data]
+                sys.argv = [self.SCRIPT_PATH, "2025-12-19_S23"]
                 #modify the environment variable to point to the correct directory
                 #os.environ["EUVL_PATH"] = r"C:\Users\srroj\Box\IPI EUV\Data\November_25"
                 process_snapshots.main()

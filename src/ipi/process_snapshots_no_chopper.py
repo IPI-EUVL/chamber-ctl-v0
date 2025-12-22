@@ -202,6 +202,7 @@ def main():
     for times, pulse in pulses:
         sum = np.trapezoid(pulse) / len(pulse)
         auc_volt_sec = sum * pulse_int_time
+        print(f"nWeber: {auc_volt_sec * 1e9}")
         Q_coulombs = auc_volt_sec / RESISTOR_OHMS
         E_joules = Q_coulombs / RESP_A_PER_W
         E_mJ = E_joules * 1000.0
@@ -213,8 +214,8 @@ def main():
             print(f"Negative dose for pulse {times[0]} : ({dose_per_pulse_mJ_cm2:.3e} mJ/cm²)")
 
     pulse_doses = np.array(pulse_doses)
-    print(pulse_doses)
-    print(len(pulse_doses))
+    #print(pulse_doses)
+    #print(len(pulse_doses))
     total = np.sum(pulse_doses[:, 1])
     print(f"Total dose = {total} mJ")
 
@@ -231,7 +232,7 @@ def main():
 
     peaks = np.array(peaks)
 
-    print(peaks)
+    #print(peaks)
     powers = []
 
     cropped_peaks = np.empty((0, 2))
