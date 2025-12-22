@@ -116,8 +116,6 @@ class SampleStageControl:
         self.__ctl.goto_sample(sample_nums[sample], [self.__xoff, self.__zoff])
 
     def __ui_change_sample(self, s):
-        sample = int(self.sample_target.get())
-
         self.__c_sample += s
 
         sample_nums = [11, 4, 10, 3, 0, 5, 9, 2, 1, 6, 8, 7]

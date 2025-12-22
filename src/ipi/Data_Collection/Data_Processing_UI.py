@@ -10,6 +10,7 @@ import runpy
 import threading
 from tkinterweb import HtmlFrame
 import webview
+import time
 
 
 class Data_Processing_UI(tk.Frame):
@@ -69,8 +70,9 @@ class Data_Processing_UI(tk.Frame):
                 script_path = os.path.join(self.SCRIPT_PATH, "process_snapshot")
                 sys.argv = [script_path, data]
                 process_snapshots_no_chopper.main()
-                sys.argv = [script_path, data, 1]
+                sys.argv = [script_path, data, 0]
                 process_snapshot.main()
+                time.sleep(5)
                 #Process single snapshot
 
             #elif script == "piss":
@@ -125,7 +127,7 @@ class Data_Processing_UI(tk.Frame):
                         window = "one"
                 else:
                     break
-
+            time.sleep(5)
             threading.Thread(target=webview.start()).start()
 
 

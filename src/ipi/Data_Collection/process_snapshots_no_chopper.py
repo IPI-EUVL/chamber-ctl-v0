@@ -16,7 +16,7 @@ TARGET_BINNING = 5
 
 RESISTOR_OHMS = 50
 RESP_A_PER_W = 0.22
-AREA_CM2 = (19.7/4) / 100.0
+AREA_CM2 = (2.5/4) / 100.0
 
 def get_data(filename):
     file = open(filename)
@@ -175,22 +175,8 @@ def main():
 
                     pulses.append((pulsetimes, values[start_index:end_index, labels['v']]))
 
-            try:
-                chopper_file = open(chopper_fn)
-                for line in chopper_file:
-                    if line.startswith("t"):
-                        continue
-                    #print(line.strip().split(','))
-                    (t, phase, sync) = line.strip().split(',')
-                    chopper.append([float(t) / 1000000000.0, float(phase)])
-
-                start_time += values[-1, labels['t']]
-                chopper_file.close()
-            except FileNotFoundError:
-                pass
-
     pulse_doses = []
-    print(pulses[1][0])
+    #print(pulses[1][0])
     pulse_time = pulses[1][0][0] - pulses[0][0][0]
     print(pulse_time)
 
@@ -201,22 +187,20 @@ def main():
 
     for times, pulse in pulses:
         sum = np.trapezoid(pulse) / len(pulse)
-        auc_volt_sec = sum * pulse_int_time
-        print(f"nWeber: {auc_volt_sec * 1e9}")
-        Q_coulombs = auc_volt_sec / RESISTOR_OHMS
+        auc_webers = sum * pulse_int_time
+        #print(f"nWeber: {auc_volt_sec * 1e9}") 
+        Q_coulombs = auc_webers / RESISTOR_OHMS
         E_joules = Q_coulombs / RESP_A_PER_W
         E_mJ = E_joules * 1000.0
         dose_per_pulse_mJ_cm2 = E_mJ / AREA_CM2
         #print(f"uJ/cm2: {dose_per_pulse_mJ_cm2 * 1e3}")
-        if dose_per_pulse_mJ_cm2 >= 0:
-            pulse_doses.append((times[0], dose_per_pulse_mJ_cm2))
-        else:
-            print(f"Negative dose for pulse {times[0]} : ({dose_per_pulse_mJ_cm2:.3e} mJ/cm²)")
+        pulse_doses.append((times[0], dose_per_pulse_mJ_cm2))
 
     pulse_doses = np.array(pulse_doses)
     #print(pulse_doses)
     #print(len(pulse_doses))
     total = np.sum(pulse_doses[:, 1])
+    total *= (times[0] / (len(pulses) / 100))
     print(f"Total dose = {total} mJ")
 
         # 7. Calculate metrics for this file

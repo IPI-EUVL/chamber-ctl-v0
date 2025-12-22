@@ -1,0 +1,3 @@
+Exposure time = 118.49783301353455s
+Dose per pulse = 2.385e-03 mJ/cm²
+Total dose = 25.147890736703317 mJ
