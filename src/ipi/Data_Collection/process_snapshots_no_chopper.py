@@ -287,7 +287,14 @@ def main():
     fig.add_trace(go.Scatter(yaxis='y2', x=wtimes, y=averages, mode='lines', name='PD Dissipated Average Power over 30 sec average (WATTS)', line=dict(color='green'))) 
     fig.add_trace(go.Scatter(yaxis='y4', x=pulse_doses[:, 0], y=pulse_doses[:, 1], mode='lines', name='Dose', line=dict(color='red'))) 
     fig.update_layout( title=f"", xaxis_title="Time (s)", template="plotly_white", legend_title_text="Waveform Type" ) 
-    fig.show()
+    #fig.show()
+    html = fig.to_html(full_html=False, include_plotlyjs='cdn')
+    with open(os.path.join(os.getcwd(), "plot.html"), "w") as f:
+        f.write(html)
+
+    with open(os.path.join(os.getcwd(), "dose.txt"), "w") as f:
+        f.write(f"Exposure time = {times[0]}s\nDose per pulse = {dose_per_pulse_mJ_cm2:.3e} mJ/cm²\nTotal dose = {total} mJ")
+    
     print(f"Exposure time {times[0]} : ({dose_per_pulse_mJ_cm2:.3e} mJ/cm²)")
     print(f"Total dose = {total} mJ")
 

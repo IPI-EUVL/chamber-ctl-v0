@@ -433,15 +433,18 @@ def main():
     fig.add_trace(go.Scatter(yaxis='y3', x=chopper[:, 0], y=chopper[:, 1], mode='lines', name='Chopper Phase (Degrees)', line=dict(color='green'))) 
     fig.add_trace(go.Scatter(yaxis='y4', x=pulse_doses[:, 0], y=pulse_doses[:, 1], mode='lines', name='Dose', line=dict(color='red'))) 
     fig.update_layout( title=f"", xaxis_title="Time (s)", template="plotly_white", legend_title_text="Waveform Type" ) 
-    fig.show()
+    #fig.show()
+    html = fig.to_html(full_html=False, include_plotlyjs='cdn')
+    with open(os.path.join(os.getcwd(), "plot.html"), "w") as f:
+        f.write(html)
 
-    fig2 = go.Figure()
+    #fig2 = go.Figure()
 
     #fig.add_trace(go.Scatter(x=wtimes, y=averages, mode='lines', name='RMS', line=dict(color='red'))) 
-    fig2.add_trace(go.Scatter(yaxis='y', x=attenuation_graph[:, 0], y=attenuation_graph[:, 1], mode='lines', name='Attenuation', line=dict(color='black'))) 
-    fig2.add_trace(go.Scatter(yaxis='y', x=tattenuation_graph[:, 0], y=tattenuation_graph[:, 1], mode='lines', name='Target Attenuation', line=dict(color='red'))) 
-    fig2.update_layout( title=f"", xaxis_title="Degrees", template="plotly_white", legend_title_text="Waveform Type" ) 
-    fig2.show()
+    #fig2.add_trace(go.Scatter(yaxis='y', x=attenuation_graph[:, 0], y=attenuation_graph[:, 1], mode='lines', name='Attenuation', line=dict(color='black'))) 
+    #fig2.add_trace(go.Scatter(yaxis='y', x=tattenuation_graph[:, 0], y=tattenuation_graph[:, 1], mode='lines', name='Target Attenuation', line=dict(color='red'))) 
+    #fig2.update_layout( title=f"", xaxis_title="Degrees", template="plotly_white", legend_title_text="Waveform Type" ) 
+    #fig2.show()
 
     
 
