@@ -108,6 +108,8 @@ def main():
             exposures.append(arg)
     else:
         exposures.append(sorted(os.listdir(SAVE_PATH), key=lambda x: os.path.getctime(os.path.join(SAVE_PATH, x)))[-1])
+
+
     
     pulses = []
     chopper = []
@@ -177,6 +179,7 @@ def main():
 
             try:
                 chopper_file = open(chopper_fn)
+                print(exp_begin_time)
                 for line in chopper_file:
                     if line.startswith("t"):
                         continue
@@ -195,27 +198,21 @@ def main():
     print(pulse_time)
 
     SAMPLE_dT = 10 / 1e9
-    pulse_int_time = len(pulses[0][1]) * SAMPLE_dT
-    print("Pulse num:", len(pulses) / 100)
-    print("Area:", AREA_CM2)
 
     for times, pulse in pulses:
-        sum = np.trapezoid(pulse) / len(pulse)
+        sum = np.sum(pulse)
+        pulse_int_time = len(pulse) * SAMPLE_dT
         auc_volt_sec = sum * pulse_int_time
-        print(f"nWeber: {auc_volt_sec * 1e9}")
         Q_coulombs = auc_volt_sec / RESISTOR_OHMS
         E_joules = Q_coulombs / RESP_A_PER_W
         E_mJ = E_joules * 1000.0
         dose_per_pulse_mJ_cm2 = E_mJ / AREA_CM2
-        #print(f"uJ/cm2: {dose_per_pulse_mJ_cm2 * 1e3}")
         if dose_per_pulse_mJ_cm2 >= 0:
             pulse_doses.append((times[0], dose_per_pulse_mJ_cm2))
         else:
-            print(f"Negative dose for pulse {times[0]} : ({dose_per_pulse_mJ_cm2:.3e} mJ/cm²)")
+            print(f"Negative dose for pulse {times[0]} in file ({dose_per_pulse_mJ_cm2:.3e} mJ/cm²)")
 
     pulse_doses = np.array(pulse_doses)
-    #print(pulse_doses)
-    #print(len(pulse_doses))
     total = np.sum(pulse_doses[:, 1])
     print(f"Total dose = {total} mJ")
 
@@ -230,9 +227,118 @@ def main():
         peak = np.max(pulse)
         peaks.append([times[0], peak])
 
-    peaks = np.array(peaks)
+    chopper_acc = dict()
 
-    #print(peaks)
+    corrections = []
+
+    if len(chopper) == 0:
+        print("No chopper data!")
+        chopper.append([exp_begin_time, 0])
+
+    chopper_index = 0
+    #print(len(chopper))
+    for (times, peak) in peaks:
+        #print(f"{times}: using chopper @ {chopper[chopper_index][0]}")
+        if chopper[chopper_index][0] < times and len(chopper) > chopper_index + 2:
+            chopper_index += 1
+        
+        chopper_angle = chopper[chopper_index][1]
+
+        chopper_angle = chopper_angle - chopper_angle % CHOPPER_BINNING
+
+
+        if math.isnan(chopper_angle):
+            continue
+
+        if not chopper_angle in chopper_acc:
+            chopper_acc[chopper_angle] = [0, 0]
+
+        (acc, num) = chopper_acc[chopper_angle]
+
+        chopper_acc[chopper_angle] = [acc + peak, num + 1]
+
+    peaks = np.array(peaks)
+    
+    average = np.average(peaks[: ,1])
+    attenuation = dict()
+
+    for angle, (avg, samples) in chopper_acc.items():
+        print(f"{angle}: {(avg / samples)} ({samples} samples)")
+
+        attenuation[angle] = (avg / samples) / average
+
+    print(f"Overall average: {average}")
+
+    attenuation_s = sorted(attenuation.items(), key=lambda a: a[0])
+    attenuation_graph = []
+
+    for angle, att in attenuation_s:
+        print(f"Attenuation @ {angle}: {math.log10(att)*10:.02f} dBV ({int(att*100)}%) (based on {chopper_acc[angle][1]} samples)")
+
+        attenuation_graph.append([angle, att])
+
+    chopper_index = 0
+    #print(len(chopper))
+    comp_peaks = []
+    for (times, peak) in peaks:
+        #print(f"{times}: using chopper @ {chopper[chopper_index][0]}")
+        if chopper[chopper_index][0] < times and len(chopper) > chopper_index + 2:
+            chopper_index += 1
+
+        chopper_angle = chopper[chopper_index][1]
+        chopper_angle = chopper_angle - chopper_angle % CHOPPER_BINNING
+
+        if math.isnan(chopper_angle):
+            continue
+
+        if chopper_acc[chopper_angle][1] < 50:
+            continue
+        
+        att = attenuation[chopper_angle]
+
+        peak /= att
+        comp_peaks.append([times, peak])
+
+    comp_peaks = np.array(comp_peaks)
+    # target comp
+    target_acc = dict()
+
+    #print(len(chopper))
+    for (times, peak) in comp_peaks:
+        #print(f"{times}: using chopper @ {chopper[chopper_index][0]}")
+        target_angle = int((times % 60.0))
+
+        target_angle = target_angle - target_angle % TARGET_BINNING
+
+        if not target_angle in target_acc:
+            target_acc[target_angle] = [0, 0]
+
+        (acc, num) = target_acc[target_angle]
+
+        target_acc[target_angle] = [acc + peak, num + 1]
+
+    
+    print(comp_peaks.shape)
+    print(comp_peaks)
+    print(peaks)
+    comp_average = np.average(comp_peaks[: ,1])
+    target_att= dict()
+
+    for angle, (avg, samples) in target_acc.items():
+        print(f"TARGET {angle}: {(avg / samples)} ({samples} samples)")
+
+        target_att[angle] = (avg / samples) / comp_average
+
+    tattenuation_s = sorted(target_att.items(), key=lambda a: a[0])
+    tattenuation_graph = []
+
+    for angle, att in tattenuation_s:
+        print(f"Attenuation @ {angle}: {math.log10(att)*10:.02f} dBV ({int(att*100)}%) (based on {target_acc[angle][1]} samples)")
+
+        tattenuation_graph.append([angle, att])
+
+    print(f"Overall average: {comp_average}")
+
     powers = []
 
     cropped_peaks = np.empty((0, 2))
@@ -254,7 +360,38 @@ def main():
 
     powers = np.array(powers)
 
+    powers_comp = []
+
+    for (peaktime, peakvoltage) in comp_peaks:
+        power = peakvoltage * (peakvoltage / 50.0)
+        powers_comp.append([peaktime, power])
+
+    powers_comp = np.array(powers_comp)
+
+    tcomp_peaks = []
+    for (times, peak) in comp_peaks:
+        #print(f"{times}: using chopper @ {chopper[chopper_index][0]}")
+        target_angle = int((times % 60.0))
+        target_angle = target_angle - target_angle % TARGET_BINNING
+
+        att = target_att[target_angle]
+
+        peak /= att
+        tcomp_peaks.append([times, peak])
+
+    tcomp_peaks = np.array(tcomp_peaks)
+
+    powers_comp_t = []
+
+    for (peaktime, peakvoltage) in tcomp_peaks:
+        power = peakvoltage * (peakvoltage / 50.0)
+        powers_comp_t.append([peaktime, power])
+
+    powers_comp_t = np.array(powers_comp_t)
+
     wtimes, averages = rolling_average(powers, 5)
+    wtimes_c, averages_c = rolling_average(powers_comp, 30)
+    wtimes_t, averages_t = rolling_average(powers_comp_t, 30)
 
     fig = go.Figure(layout={
         'yaxis': {
@@ -281,16 +418,35 @@ def main():
     })
 
     chopper = np.array(chopper)
+    attenuation_graph = np.array(attenuation_graph)
+    tattenuation_graph = np.array(tattenuation_graph)
+
     #fig.add_trace(go.Scatter(x=wtimes, y=averages, mode='lines', name='RMS', line=dict(color='red'))) 
     fig.add_trace(go.Scatter(yaxis='y', x=peaks[:, 0], y=peaks[:, 1], mode='lines', name='Peak V', line=dict(color='black'))) 
     fig.add_trace(go.Scatter(yaxis='y', x=cropped_peaks[:, 0], y=cropped_peaks[:, 1], mode='lines', name='Above average out of 1000', line=dict(color='red'))) 
+    fig.add_trace(go.Scatter(yaxis='y', x=comp_peaks[:, 0], y=comp_peaks[:, 1], mode='lines', name='Chopper Compensated', line=dict(color='red'))) 
     fig.add_trace(go.Scatter(yaxis='y2', x=powers[:, 0], y=powers[:, 1], mode='lines', name='PD Dissipated Power', line=dict(color='yellow'))) 
+    fig.add_trace(go.Scatter(yaxis='y2', x=powers_comp[:, 0], y=powers_comp[:, 1], mode='lines', name='PD Dissipated Power (Compensated)', line=dict(color='blue'))) 
     fig.add_trace(go.Scatter(yaxis='y2', x=wtimes, y=averages, mode='lines', name='PD Dissipated Average Power over 30 sec average (WATTS)', line=dict(color='green'))) 
+    fig.add_trace(go.Scatter(yaxis='y2', x=wtimes_c, y=averages_c, mode='lines', name='PD Dissipated Average Power over 30 sec average (Comp)', line=dict(color='blue'))) 
+    fig.add_trace(go.Scatter(yaxis='y2', x=wtimes_t, y=averages_t, mode='lines', name='PD Dissipated Average Power over 30 sec average (Comp)', line=dict(color='red'))) 
+    fig.add_trace(go.Scatter(yaxis='y3', x=chopper[:, 0], y=chopper[:, 1], mode='lines', name='Chopper Phase (Degrees)', line=dict(color='green'))) 
     fig.add_trace(go.Scatter(yaxis='y4', x=pulse_doses[:, 0], y=pulse_doses[:, 1], mode='lines', name='Dose', line=dict(color='red'))) 
     fig.update_layout( title=f"", xaxis_title="Time (s)", template="plotly_white", legend_title_text="Waveform Type" ) 
-    fig.show()
-    print(f"Exposure time {times[0]} : ({dose_per_pulse_mJ_cm2:.3e} mJ/cm²)")
-    print(f"Total dose = {total} mJ")
+    #fig.show()
+    html = fig.to_html(full_html=False, include_plotlyjs='cdn')
+    with open(os.path.join(os.getcwd(), "plot.html"), "w") as f:
+        f.write(html)
+
+    #fig2 = go.Figure()
+
+    #fig.add_trace(go.Scatter(x=wtimes, y=averages, mode='lines', name='RMS', line=dict(color='red'))) 
+    #fig2.add_trace(go.Scatter(yaxis='y', x=attenuation_graph[:, 0], y=attenuation_graph[:, 1], mode='lines', name='Attenuation', line=dict(color='black'))) 
+    #fig2.add_trace(go.Scatter(yaxis='y', x=tattenuation_graph[:, 0], y=tattenuation_graph[:, 1], mode='lines', name='Target Attenuation', line=dict(color='red'))) 
+    #fig2.update_layout( title=f"", xaxis_title="Degrees", template="plotly_white", legend_title_text="Waveform Type" ) 
+    #fig2.show()
+
+    
 
 
 if __name__ == "__main__":
