@@ -106,39 +106,15 @@ class Data_Processing_UI(tk.Frame):
             self.data.after(100, self.data.config(text=f"{dose[0]}\n{dose[1]}\n{dose[2]}"))
             self.data.update_idletasks()
 
-            while True:
-                if window == None:
-                    try:
-                        webview.create_window(
-                                "PD Voltage Reading",
-                                html=html,
-                                width=1000,
-                                height=600
-                            )
-                        window = "one"
-                        break
-                    except webview.errors.WebViewException:
-                        webview.create_window(
-                                "PD Voltage Reading",
-                                html=html,
-                                width=1000,
-                                height=600
-                            )
-                        window = "one"
-                else:
-                    break
-            time.sleep(5)
-            threading.Thread(target=webview.start()).start()
-
-
-
-
+            root.geometry("300x300")
+            root.update_idletasks()
+            root.update()
 
 
 root = tk.Tk()
 root.title("Data Processing")
 root.geometry("300x300")
 root.resizable(False, False)
-
 ui = Data_Processing_UI(root)
+root.grid_propagate(False)
 root.mainloop()
