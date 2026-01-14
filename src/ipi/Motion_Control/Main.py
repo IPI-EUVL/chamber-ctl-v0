@@ -233,6 +233,7 @@ class TargetMotionControlGUI(tk.Frame):
             self.animation.go()
             self.rot.run_threaded_rotation()
             self.data = lin.MOVE(-self.selected_speed, self.ser_in, "data")
+            self.laser.powerup()
             self.button = "going"
             self.friendly_button()
             self.recording()

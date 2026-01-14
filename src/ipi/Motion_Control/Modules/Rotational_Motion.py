@@ -1,10 +1,18 @@
 
+<<<<<<< HEAD
 from labjack import ljm
+=======
+import labjack as ljm
+>>>>>>> 13c4082e4d72a76be7d0f0abd03d5120e38fe2b8
 import time 
 import threading 
 import serial 
 
+<<<<<<< HEAD
 class Rotate:
+=======
+class Rotational_Motion:
+>>>>>>> 13c4082e4d72a76be7d0f0abd03d5120e38fe2b8
     def __init__(self):
         self.handle = None
         self.PUL_PLUS = "FIO4"
@@ -34,8 +42,18 @@ class Rotate:
         ljm.eWriteName(self.handle, self.DIR_MIN, 1)  #Inverse of DIR+
 
     def labjack_config(self):
+<<<<<<< HEAD
             self.handle = ljm.openS("ANY", "ANY", "ANY")
             self.pins()
+=======
+        try:
+            self.handle = ljm.openS("ANY", "ANY", "ANY")
+            self.pins()
+        except ljm.LJMError as err:
+            print(f"LabJack Error: {err}")
+            self.handle = None
+            self.show_error_message("Failed to connect to LabJack")
+>>>>>>> 13c4082e4d72a76be7d0f0abd03d5120e38fe2b8
 
     def pulse(self):
         if not self.handle:
@@ -70,7 +88,13 @@ class Rotate:
     
     def start_rotation(self):
         self.stop_rotation()
+<<<<<<< HEAD
         self.straight_up_rotating_it_and_by_it_I_mean_my_linear_acuator = True #UIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUUIUIUIUIUIUIUIUIUIUIUI
+=======
+        self.straight_up_rotating_it_and_by_it_I_mean_my_linear_acuator = True
+        self.animated = True
+        self.visualization() #UIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUUIUIUIUIUIUIUIUIUIUIUI
+>>>>>>> 13c4082e4d72a76be7d0f0abd03d5120e38fe2b8
         if not self.handle or self.running:
             return
             
@@ -80,7 +104,12 @@ class Rotate:
                 
             self.running = True
             self.straight_up_rotating_it_and_by_it_I_mean_my_linear_acuator = True
+<<<<<<< HEAD
 
+=======
+            self.gui_updater(f"Rotating {'CCW' if direction else 'CW'} at {rpm} RPM...") #UIUIUIUIUIUIUIUIUIUIIUIUIUIUIUIUUUIUIUIUI
+            
+>>>>>>> 13c4082e4d72a76be7d0f0abd03d5120e38fe2b8
             step_delay = self.rpm_to_delay / rpm
             self.direction_set(direction)
             
@@ -91,8 +120,13 @@ class Rotate:
                     break
 
         except ljm.LJMError as err: #UIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIU
+<<<<<<< HEAD
             self.running = False
             print(err)
+=======
+            self.gui_updater(f"LabJack Error: {err}")
+            self.running = False
+>>>>>>> 13c4082e4d72a76be7d0f0abd03d5120e38fe2b8
 
     def stop_rotation(self):
         self.running = False
@@ -107,8 +141,17 @@ class Rotate:
             #except tk.TclError: #UIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUIUI
                 #self.open_gui = False
 
+<<<<<<< HEAD
     def on_close(self):
         self.cleanup()
+=======
+    def window_popup(self):
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def on_close(self):
+        self.cleanup()
+        self.root.destroy()
+>>>>>>> 13c4082e4d72a76be7d0f0abd03d5120e38fe2b8
 
     def cleanup(self, port=None):
         port = port
@@ -120,11 +163,21 @@ class Rotate:
             time.sleep(0.1)
 
             if self.ser_connected == True:
+<<<<<<< HEAD
                 self.ser_in.close()
+=======
+                self.stop()
+                self.ser_in.close()
+                self.root.destroy()
+>>>>>>> 13c4082e4d72a76be7d0f0abd03d5120e38fe2b8
 
         except serial.SerialException as e:
             self.ser_in = None # Ensure ser_in is None if connection fails
             self.ser_connected = False
+<<<<<<< HEAD
+=======
+            self.root.destroy()
+>>>>>>> 13c4082e4d72a76be7d0f0abd03d5120e38fe2b8
 
         if self.handle:
             ljm.close(self.handle)
