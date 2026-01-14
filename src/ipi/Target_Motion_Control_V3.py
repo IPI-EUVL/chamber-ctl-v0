@@ -584,7 +584,7 @@ class TargetMotionControlGUI:
             self.move = True
             self.recording()
             try:
-                self.speed_conversion = (float(self.targetentry.get())*7836.745406824146968503937007874)/(self.canvas_width*0.15)
+
                 self.rate = int(speed_str) / self.speed_conversion
                 self.newrate = -self.rate
                 self.animated = True
@@ -608,7 +608,7 @@ class TargetMotionControlGUI:
                 self.newrate = self.rate
                 self.animated = True
                 self.moving = True
-                self.visualization()
+                self.visualization()  
                 threading.Thread(target=self.update_coords, daemon=True).start()
                 self.communicate(f'1CV{float(speed_str)}')
                 self.status_updater(f"Moving out at {speed_str} steps/s")
