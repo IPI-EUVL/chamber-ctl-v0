@@ -15,6 +15,8 @@ import subprocess
 import signal
 from Modules import Animation as anim
 from Modules import Linear_Motion as lin
+from Modules import Rotational_Motion
+from Modules import laser_control_provisional as laserctrl
 
 #import Data_Collection_V5
 #/////////////////////////////////////IMPORTS/////////////////////////////////////////////////////////////////////////////////////
@@ -87,6 +89,11 @@ class TargetMotionControlGUI(tk.Frame):
 
             self.status_updater(self.status_lbl,"Connected")
 
+            self.laser = laserctrl.LASER()
+
+            self.laser.setup()
+
+            self.rot = Rotational_Motion.Rotate()
         except serial.SerialException as e:
             message = f"Failed to connect to serial port: {e}\n\n" \
                       f"Please check if the device is connected, the port is correct, and not in use by another application."
@@ -94,6 +101,14 @@ class TargetMotionControlGUI(tk.Frame):
             time.sleep(10)
         except Exception as e:
             messagebox.showerror("Initialization Error", f"An unexpected error occured during initialization:\n{e}")
+
+        try:
+            self.rot.labjack_config()
+            self.status_updater(self.status_lbl2, "Connected")
+        except ljm.LJMError as err:
+            print(f"LabJack Error: {err}")
+            self.handle = None
+            messagebox.showerror("Failed to connect to LabJack")
 
         #self.run_serial_setup()
 
@@ -120,7 +135,7 @@ class TargetMotionControlGUI(tk.Frame):
         #data collection 
         self.data = tk.StringVar(value="Enabled")
 
-        self.status_lbl3 = tk.Label(Status, text="Data Collection Enabled", bg = "#111827", fg = "white", font=("Helvetica", 9, "bold", "italic"))
+        self.status_lbl3 = tk.Label(Status, text="Laser OFF", bg = "#111827", fg = "white", font=("Helvetica", 9, "bold", "italic"))
         self.status_lbl3.pack()
 
         tot_exp = f"Total Exposure Time Remaining = --:--"
@@ -154,8 +169,8 @@ class TargetMotionControlGUI(tk.Frame):
         self.timer1entry.grid(row=6, column=0, columnspan=1, padx=10, pady=10, sticky="ew")
         self.timer1l2.grid(row=6, column=1, columnspan=1, padx=10, pady=10, sticky="w")
 
-        tk.Radiobutton(framing, text="Data Collection Enabled", variable=self.data, fg = "black",bg = "#6D83B3", value="Enabled").grid(row=7, column=0, columnspan=1, padx=10, pady=10, sticky="w")
-        tk.Radiobutton(framing, text="Data Collection Disabled", variable=self.data, fg = "black",bg = "#6D83B3", value="Disabled").grid(row=8, column=0, columnspan=1, padx=10, pady=10, sticky="w")
+        #tk.Radiobutton(framing, text="Data Collection Enabled", variable=self.data, fg = "black",bg = "#6D83B3", value="Enabled").grid(row=7, column=0, columnspan=1, padx=10, pady=10, sticky="w")
+        #tk.Radiobutton(framing, text="Data Collection Disabled", variable=self.data, fg = "black",bg = "#6D83B3", value="Disabled").grid(row=8, column=0, columnspan=1, padx=10, pady=10, sticky="w")
 
         #tk.Button(framing, text = "Select Save File").grid(row = 9, column = 0 , columnspan = 1, padx = 10, pady = 10, stick = "ew")
 
@@ -212,17 +227,25 @@ class TargetMotionControlGUI(tk.Frame):
     def go_in(self):
         if self.button == "Start":
             self.animation.animated = True
+            self.status_updater(self.status_lbl3, "Laser Powering Up...")
+            self.laser.powerup()
+            self.status_updater(self.status_lbl3, "Laser at Full Power")
             self.animation.go()
+            self.rot.run_threaded_rotation()
             self.data = lin.MOVE(-self.selected_speed, self.ser_in, "data")
             self.button = "going"
             self.friendly_button()
             self.recording()
         elif self.button == "going":
+            self.laser.OFF()
+            self.status_updater(self.status_lbl3, "Laser OFF")
             self.animation.animated = False
             self.animation.go()
+            self.rot.stop_rotation()
             lin.stop(self.data, self.ser_in)
             self.button = "Start"
             self.friendly_button()
+ 
 
     def Buttoner(self, text, bg, fg):
         if self.open_gui:    
@@ -266,6 +289,7 @@ class TargetMotionControlGUI(tk.Frame):
                 messagebox.showerror("Tin Target Spent", "Please replace the tin target")
 
             if self.t >= float(self.timer1.get()):
+                self.go_in()
                 self.reset()
                 messagebox.showinfo("Exposure Completed", "Exposure completed")
 
@@ -307,7 +331,8 @@ class TargetMotionControlGUI(tk.Frame):
 ###reset current exposure
     def res_cur_exp(self):
         lin.stop_linmotion(self.ser_in)
-        self.button = "going"
+        self.button = "Start"
+        self.friendly_button()
         with open (log_path, "r") as readlog:
             lines = readlog.readlines()
         with open (log_path, "w") as log:
@@ -317,8 +342,7 @@ class TargetMotionControlGUI(tk.Frame):
 
     def reset(self):
         threading.Thread(target=self.res_cur_exp, daemon=True).start()
-        self.button = "going"
-        self.go_in()
+
         self.t = 0
 
 ###reset all
@@ -335,12 +359,11 @@ class TargetMotionControlGUI(tk.Frame):
         speed = 4000
         with open (log_path, "r") as readlog:
             este = readlog.readlines()
-        self.button = "going"
-        self.go_in()
         anim.setup_visualization(self.framing, 0)
-        data_collec = lin.MOVE(speed, self.ser_in, "nodata")
+        self.rot.stop_rotation()
+        lin.MOVE(speed, self.ser_in, "nodata")
         time.sleep(abs(float(este[0].strip()))/speed)
-        lin.stop(data_collec, self.ser_in)
+        lin.stop_linmotion(self.ser_in)
         threading.Thread(target=self.wipe, daemon=True).start()
 
     def run_serial_setup(self):
