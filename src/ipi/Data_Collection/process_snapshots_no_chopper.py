@@ -15,8 +15,8 @@ CHOPPER_BINNING = 2
 TARGET_BINNING = 5
 
 RESISTOR_OHMS = 50
-RESP_A_PER_W = 0.22
-AREA_CM2 = (2.5/4) / 100.0
+RESP_A_PER_W = 0.13#0.22
+AREA_CM2 = (5/4) / 100.0
 
 def get_data(filename):
     file = open(filename)
@@ -197,6 +197,7 @@ def main():
         pulse_doses.append((times[0], dose_per_pulse_mJ_cm2))
 
     pulse_doses = np.array(pulse_doses)
+    print(np.average(pulse_doses[:,1]))
     #print(pulse_doses)
     #print(len(pulse_doses))
     total = np.sum(pulse_doses[:, 1])
@@ -277,8 +278,8 @@ def main():
     #with open(os.path.join(os.getcwd(), "plot.html"), "w") as f:
     #    f.write(html)
 
-    #with open(os.path.join(os.getcwd(), "dose.txt"), "w") as f:
-    #    f.write(f"Exposure time = {times[0]}s\nDose per pulse = {dose_per_pulse_mJ_cm2:.3e} mJ/cm²\nTotal dose = {total} mJ")
+    with open(os.path.join(os.getcwd(), "dose.txt"), "w") as f:
+        f.write(f"Exposure time = {times[0]}s\nDose per pulse = {dose_per_pulse_mJ_cm2:.3e} mJ/cm²\nTotal dose = {total} mJ")
     
     print(f"Exposure time {times[0]} : ({dose_per_pulse_mJ_cm2:.3e} mJ/cm²)")
     print(f"Total dose = {total} mJ")
