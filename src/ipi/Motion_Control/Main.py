@@ -15,7 +15,7 @@ import subprocess
 import signal
 from Modules import Animation as anim
 from Modules import Linear_Motion as lin
-from Modules import Rotational_Motion
+from Modules import Rotational_Motion2
 from Modules import laser_control_provisional as laserctrl
 
 #import Data_Collection_V5
@@ -74,9 +74,9 @@ class TargetMotionControlGUI(tk.Frame):
         self.ser_connected = False
         self.directional = "cw"
         self.is_in_or_out = "in"
-        self.selected_speed = 300 #change to 300 maybe ?(previous speed 500)
+        self.selected_speed = 130 #change to 300 maybe ?(previous speed 500)
         self.rpmset = 1
-        self.speed = 300
+        self.speed = self.selected_speed
         self.targt_len = 63.5#mm
 
         #GUI setup
@@ -93,7 +93,7 @@ class TargetMotionControlGUI(tk.Frame):
 
             self.laser.setup()
 
-            self.rot = Rotational_Motion.Rotate()
+            self.rot = Rotational_Motion2.Rotate()
         except serial.SerialException as e:
             message = f"Failed to connect to serial port: {e}\n\n" \
                       f"Please check if the device is connected, the port is correct, and not in use by another application."
@@ -153,7 +153,7 @@ class TargetMotionControlGUI(tk.Frame):
             times = readlog.readlines()
         total_minutes1 = float(times[1].strip()) / 60
         total_minutes2 = float(times[2].strip()) / 60
-        tot_min = (7836.745406824146968503937007874/300 * float(self.targt_len))/60 - total_minutes1
+        tot_min = (7836.745406824146968503937007874/self.selected_speed * float(self.targt_len))/60 - total_minutes1
         cur_time = 0 + total_minutes2
         sec1 = f"{int(float(tot_min-int(tot_min))*60):02}"
         sec2 = f"{int(float(cur_time-int(cur_time))*60):02}"
@@ -233,7 +233,6 @@ class TargetMotionControlGUI(tk.Frame):
             self.animation.go()
             self.rot.run_threaded_rotation()
             self.data = lin.MOVE(-self.selected_speed, self.ser_in, "data")
-            self.laser.powerup()
             self.button = "going"
             self.friendly_button()
             self.recording()
@@ -284,7 +283,7 @@ class TargetMotionControlGUI(tk.Frame):
             last_time = now
             self.dt += elapsed
             self.t += elapsed
-            if self.dt >= float(7836.745406824146968503937007874/300 * self.targt_len):
+            if self.dt >= float(7836.745406824146968503937007874/self.selected_speed * self.targt_len):
                 self.reset()
                 self.go_in()
                 messagebox.showerror("Tin Target Spent", "Please replace the tin target")
@@ -294,7 +293,7 @@ class TargetMotionControlGUI(tk.Frame):
                 self.reset()
                 messagebox.showinfo("Exposure Completed", "Exposure completed")
 
-            tot_min = (7836.745406824146968503937007874/300 * float(self.targt_len) - self.dt)/60
+            tot_min = (7836.745406824146968503937007874/self.selected_speed* float(self.targt_len) - self.dt)/60
             cur_time = (self.t/60)
             sec1 = f"{int(float(tot_min-int(tot_min)-seconds1)*60):02}"
             sec2 = f"{int(float(cur_time-int(cur_time)+seconds2)*60):02}"

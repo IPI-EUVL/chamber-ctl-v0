@@ -97,7 +97,7 @@ class SampleStageControl:
         self.__ctl.move_to(th, z)
 
     def __ui_sample_motion(self):
-        sample = int(self.sample_target.get())
+        sample = int(self.sample_target.get()) - 1
 
         self.__xoff = float(self.off_x.get())
         self.__zoff = float(self.off_z.get())
@@ -205,7 +205,7 @@ class SampleStageControl:
         num = 0
         for i in [11, 4, 10, 3, 0, 5, 9, 2, 1, 6, 8, 7]:
             s = samples[i]
-            s["label"] += f"\nSample #{num}"
+            s["label"] += f"\nSample #{num + 1}"
             num += 1
 
         return samples

@@ -16,31 +16,31 @@ import time
 class Data_Processing_UI(tk.Frame):
     def __init__(self, master):
         super().__init__(master)
-        self.widgetsnbuttons()
+        self.widgetsnbuttons(master)
         master.bind("<Return>", self.trigger_processing_scripts)
         self.SCRIPT_PATH = "./"
         self.grid()
 
-    def widgetsnbuttons(self):
+    def widgetsnbuttons(self, master):
         #Labels////////
 
-        labelframe = tk.Frame(self, bg="black")
+        labelframe = tk.Frame(master, bg="black")
         labelframe.grid(row = 11, column = 0, columnspan = 3, sticky = "we")
-        self.label = tk.Label(self, text="Select Processing Method", fg="black")
-        self.status = tk.Label(self, text="No processing selected", fg="black")
-        self.data = tk.Label(labelframe, text="No data", fg = "darkgreen", bg = "black")
+        self.label = tk.Label(master, text="Select Processing Method", fg="white", bg = "#6D83B3")
+        self.status = tk.Label(master, text="No processing selected", fg="white", bg = "#6D83B3")
+        self.data = tk.Label(labelframe, text="No data", fg = "yellow", bg = "black")
 
         #Variables//////////////
-        self.processing_script = tk.StringVar(self, value="ps")
-        self.data_directory = tk.StringVar(self, value = "")
+        self.processing_script = tk.StringVar(master, value="ps")
+        self.data_directory = tk.StringVar(master, value = "")
 
         #Buttons////////
-        self.button = tk.Button(self, text="Select Folder", font=("Arial", 12), 
+        self.button = tk.Button(master, text="Select Folder", font=("Arial", 12), 
                                 command=self.select_exposure, fg = "white",
                                 bg="Teal")
-        tk.Radiobutton(self, text = "Individual Pulse", variable = self.processing_script, value = "ps").grid(row = 1, column = 0, sticky = "W", pady = (10,0))
+        tk.Radiobutton(master, text = "Individual Pulse", variable = self.processing_script, value = "ps", bg = "#6D83B3").grid(row = 1, column = 0, sticky = "W", pady = (10,0))
         #tk.Radiobutton(self, text = "All Pulses w Chopper", variable = self.processing_script, value = "piss").grid(row = 3, column = 0, sticky = "W")
-        tk.Radiobutton(self, text = "All Pulses w/o Chopper", variable = self.processing_script, value = "psnc").grid(row = 5, column = 0, sticky = "W")
+        tk.Radiobutton(master, text = "All Pulses w/o Chopper", variable = self.processing_script, value = "psnc", bg = "#6D83B3").grid(row = 5, column = 0, sticky = "W")
         
         #Positions////
         self.button.grid(row = 1, column = 2,rowspan=3, sticky = "nwse", padx=20)
@@ -86,7 +86,9 @@ class Data_Processing_UI(tk.Frame):
 
             elif script == "psnc":
                 self.status.config(text="Processing multiple snapshots without chopper...")
+                self.data.config(text=f"Processing {data.split("/")[-1]}...")
                 self.status.update_idletasks()
+                self.data.update_idletasks()
                 script_path = os.path.join(self.SCRIPT_PATH, "process_snapshots_no_chopper")
                 sys.argv = [script_path, data]
 
@@ -101,7 +103,7 @@ class Data_Processing_UI(tk.Frame):
             with open(os.path.join(os.getcwd(), "dose.txt"), "r") as f:
                 dose = f.readlines()
 
-            self.status.after(100, self.status.config(text="Processing " + data.split("/")[-1]))
+            self.status.after(100, self.status.config(text="Processed " + data.split("/")[-1]))
             self.status.update_idletasks()
             self.data.after(100, self.data.config(text=f"{dose[0]}\n{dose[1]}\n{dose[2]}"))
             self.data.update_idletasks()
@@ -112,6 +114,7 @@ class Data_Processing_UI(tk.Frame):
 
 
 root = tk.Tk()
+root.configure(bg = "#6D83B3")
 root.title("Data Processing")
 root.geometry("300x300")
 root.resizable(False, False)
