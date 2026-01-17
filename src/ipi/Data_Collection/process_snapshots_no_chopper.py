@@ -184,8 +184,12 @@ def main():
     pulse_int_time = len(pulses[0][1]) * SAMPLE_dT
     print("Pulse num:", len(pulses) / 100)
     print("Area:", AREA_CM2)
+    OFF_NUM = 98
 
     for times, pulse in pulses:
+        off_avg = np.average(pulse[:OFF_NUM])
+        #print(off_avg)
+        pulse -= off_avg
         sum = np.trapezoid(pulse) / len(pulse)
         auc_webers = sum * pulse_int_time
         #print(f"nWeber: {auc_volt_sec * 1e9}") 
@@ -195,6 +199,10 @@ def main():
         dose_per_pulse_mJ_cm2 = E_mJ / AREA_CM2
         #print(f"uJ/cm2: {dose_per_pulse_mJ_cm2 * 1e3}")
         pulse_doses.append((times[0], dose_per_pulse_mJ_cm2))
+
+        if dose_per_pulse_mJ_cm2 < 0:
+            print("NEGATIVE DOSE: ", dose_per_pulse_mJ_cm2)
+
 
     pulse_doses = np.array(pulse_doses)
     print(np.average(pulse_doses[:,1]))
