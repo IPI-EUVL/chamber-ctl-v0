@@ -280,7 +280,7 @@ def main():
     fig.add_trace(go.Scatter(yaxis='y2', x=powers[:, 0], y=powers[:, 1], mode='lines', name='PD Dissipated Power', line=dict(color='yellow'))) 
     fig.add_trace(go.Scatter(yaxis='y2', x=wtimes, y=averages, mode='lines', name='PD Dissipated Average Power over 30 sec average (WATTS)', line=dict(color='green'))) 
     fig.add_trace(go.Scatter(yaxis='y4', x=pulse_doses[:, 0], y=pulse_doses[:, 1], mode='lines', name='Dose', line=dict(color='red'))) 
-    fig.update_layout( title=f"", xaxis_title="Time (s)", template="plotly_white", legend_title_text="Waveform Type" ) 
+    fig.update_layout( title=f"{foldername}", xaxis_title="Time (s)", template="plotly_white", legend_title_text="Waveform Type" ) 
     fig.show()
     #html = fig.to_html(full_html=False, include_plotlyjs='cdn')
     #with open(os.path.join(os.getcwd(), "plot.html"), "w") as f:
