@@ -120,7 +120,7 @@ def main():
     print(labels)
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=values[:, labels['t']], y=values[:, labels['v']], mode='lines', name='RMS', line=dict(color='red'))) 
+    fig.add_trace(go.Scatter(x=values[:, labels['t']]*47035, y=values[:, labels['v']], mode='lines', name='RMS', line=dict(color='red'))) 
     fig.update_layout( title=f"", xaxis_title="Time (s)", yaxis_title="RMS Voltage (V)", template="plotly_white", legend_title_text="Waveform Type" ) 
     fig.show()
     #html = fig.to_html(full_html=False, include_plotlyjs='cdn')

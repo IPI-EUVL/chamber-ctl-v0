@@ -29,7 +29,7 @@ class LASER:
     def powerup(self):
         self.phase(self.phi)
         self.ON()
-        target = 273 #deg
+        target = 277 #deg
         curr = self.phi #deg
         dif = abs(curr-target)
         poweruptime = 15 #seconds it takes the laser to achieve full power

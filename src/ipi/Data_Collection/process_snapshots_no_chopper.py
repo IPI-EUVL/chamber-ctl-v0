@@ -15,8 +15,8 @@ CHOPPER_BINNING = 2
 TARGET_BINNING = 5
 
 RESISTOR_OHMS = 50
-RESP_A_PER_W = 0.13#0.22
-AREA_CM2 = (5/4) / 100.0
+RESP_A_PER_W = 0.14
+AREA_CM2 = (5) / 100.0
 
 def get_data(filename):
     file = open(filename)

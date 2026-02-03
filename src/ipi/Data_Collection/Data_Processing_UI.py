@@ -8,8 +8,7 @@ import os
 import sys
 import runpy
 import threading
-from tkinterweb import HtmlFrame
-import webview
+
 import time
 
 
